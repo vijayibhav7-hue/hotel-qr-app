@@ -35,13 +35,26 @@ interface ServiceCall {
   tables?: { table_number: string };
 }
 
+const DEFAULT_STAFF_PIN = '1234';
+
 export default function StaffDashboardPage() {
   const router = useRouter();
+  const [isStaffAuth, setIsStaffAuth] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState('');
+
   const [activeTab, setActiveTab] = useState<'orders' | 'kitchen'>('orders');
   const [orders, setOrders] = useState<Order[]>([]);
   const [serviceCalls, setServiceCalls] = useState<ServiceCall[]>([]);
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('hotel_staff_auth');
+    if (saved === 'true') {
+      setIsStaffAuth(true);
+    }
+  }, []);
 
   useEffect(() => {
     async function initStaff() {
@@ -56,8 +69,29 @@ export default function StaffDashboardPage() {
       setLoading(false);
     }
 
-    initStaff();
-  }, []);
+    if (isStaffAuth) {
+      initStaff();
+    } else {
+      setLoading(false);
+    }
+  }, [isStaffAuth]);
+
+  const handleStaffLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pinInput === DEFAULT_STAFF_PIN) {
+      setIsStaffAuth(true);
+      localStorage.setItem('hotel_staff_auth', 'true');
+      setPinError('');
+    } else {
+      setPinError('❌ चुकीचा स्टाफ पिन! (डिफॉल्ट पिन 1234 आहे)');
+      setPinInput('');
+    }
+  };
+
+  const handleStaffLogout = () => {
+    localStorage.removeItem('hotel_staff_auth');
+    setIsStaffAuth(false);
+  };
 
   const loadOrders = async (rId: string) => {
     const { data } = await supabaseClient
@@ -83,7 +117,7 @@ export default function StaffDashboardPage() {
   };
 
   useEffect(() => {
-    if (!restaurantId) return;
+    if (!restaurantId || !isStaffAuth) return;
 
     const orderChannel = supabaseClient
       .channel('staff-orders')
@@ -117,7 +151,7 @@ export default function StaffDashboardPage() {
       supabaseClient.removeChannel(orderChannel);
       supabaseClient.removeChannel(callChannel);
     };
-  }, [restaurantId]);
+  }, [restaurantId, isStaffAuth]);
 
   const updateStatus = async (orderId: string, newStatus: string) => {
     await fetch('/api/staff/orders/status', {
@@ -144,6 +178,46 @@ export default function StaffDashboardPage() {
     return `${mins} मि. आधी`;
   };
 
+  // स्टाफ लॉक स्क्रीन
+  if (!isStaffAuth) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+        <div className="bg-gray-900 border border-gray-800 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
+          <div className="w-16 h-16 bg-blue-600 rounded-2xl mx-auto flex items-center justify-center text-3xl mb-4 shadow-lg text-white">
+            ⚡
+          </div>
+          <h1 className="text-xl font-black text-white">स्टाफ पोर्टल लॉक आहे</h1>
+          <p className="text-xs text-gray-400 mt-1 mb-6">ऑर्डर्स व किचन पाहण्यासाठी स्टाफ पिन टाका</p>
+
+          <form onSubmit={handleStaffLogin} className="space-y-4">
+            <input
+              type="password"
+              maxLength={4}
+              autoFocus
+              placeholder="पिन टाका (उदा. 1234)"
+              value={pinInput}
+              onChange={e => setPinInput(e.target.value)}
+              className="w-full text-center tracking-widest text-2xl font-black bg-gray-800 border border-gray-700 rounded-2xl py-3 text-white outline-none focus:border-blue-500"
+            />
+
+            {pinError && <p className="text-xs text-red-400 font-semibold">{pinError}</p>}
+
+            <button
+              type="submit"
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-3.5 rounded-2xl transition active:scale-95 shadow cursor-pointer text-sm"
+            >
+              लॉगिन करा 🔓
+            </button>
+          </form>
+
+          <p className="text-[11px] text-gray-500 mt-6">
+            डिफॉल्ट स्टाफ पिन: <span className="text-blue-400 font-bold">1234</span>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="h-screen bg-gray-950 text-white flex items-center justify-center font-bold">
@@ -168,7 +242,7 @@ export default function StaffDashboardPage() {
           <div className="flex gap-2 bg-gray-800 p-1 rounded-xl text-xs font-bold">
             <button
               onClick={() => setActiveTab('orders')}
-              className={`px-4 py-2 rounded-lg transition ${
+              className={`px-4 py-2 rounded-lg transition cursor-pointer ${
                 activeTab === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400'
               }`}
             >
@@ -176,7 +250,7 @@ export default function StaffDashboardPage() {
             </button>
             <button
               onClick={() => setActiveTab('kitchen')}
-              className={`px-4 py-2 rounded-lg transition ${
+              className={`px-4 py-2 rounded-lg transition cursor-pointer ${
                 activeTab === 'kitchen' ? 'bg-orange-600 text-white' : 'text-gray-400'
               }`}
             >
@@ -190,6 +264,13 @@ export default function StaffDashboardPage() {
           >
             👑 ॲडमिन
           </Link>
+
+          <button
+            onClick={handleStaffLogout}
+            className="text-xs bg-red-950/60 hover:bg-red-900 text-red-300 px-3 py-2 rounded-xl font-bold cursor-pointer"
+          >
+            🔒 लॉक
+          </button>
         </div>
       </header>
 
@@ -247,7 +328,6 @@ export default function StaffDashboardPage() {
                         <span className="bg-orange-950 text-orange-400 text-xs font-black px-2.5 py-1 rounded-lg">
                           टेबल {order.tables?.table_number}
                         </span>
-                        {/* KOT प्रिंट लिंक */}
                         <Link
                           href={`/staff/kot/${order.id}`}
                           target="_blank"
@@ -255,7 +335,6 @@ export default function StaffDashboardPage() {
                         >
                           🍳 KOT
                         </Link>
-                        {/* टेबल बिल प्रिंट लिंक */}
                         <Link
                           href={`/staff/print/${order.table_id}`}
                           target="_blank"
