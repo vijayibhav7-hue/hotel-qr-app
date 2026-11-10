@@ -1,0 +1,16 @@
+{
+  "name": "हॉटेल QR ऑर्डरिंग",
+  "short_name": "HotelQR",
+  "description": "स्मार्ट QR टेबल-ऑर्डरिंग व वेटर कॉलिंग वेब अॅप",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ea580c",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}
