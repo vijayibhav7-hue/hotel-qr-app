@@ -11,6 +11,7 @@ export default function AdminMenuPage() {
   const [nameMr, setNameMr] = useState('');
   const [nameEn, setNameEn] = useState('');
   const [price, setPrice] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [isVeg, setIsVeg] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -40,13 +41,19 @@ export default function AdminMenuPage() {
     setItems(prev => prev.map(item => (item.id === id ? { ...item, is_available: !current } : item)));
   };
 
+  const handleDeleteItem = async (id: string) => {
+    if (!confirm('हा पदार्थ मेनूमधून कायमचा हटवायचा आहे का?')) return;
+    await supabaseClient.from('menu_items').delete().eq('id', id);
+    setItems(prev => prev.filter(item => item.id !== id));
+  };
+
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!restaurantId || !nameMr || !price) return;
     setUploading(true);
 
     try {
-      const { data: newItem, error } = await supabaseClient
+      const { data: newItem } = await supabaseClient
         .from('menu_items')
         .insert({
           restaurant_id: restaurantId,
@@ -55,6 +62,7 @@ export default function AdminMenuPage() {
           name_hi: nameMr,
           name_en: nameEn || nameMr,
           price: parseFloat(price),
+          image_url: imageUrl.trim() || null,
           is_veg: isVeg,
           is_available: true
         })
@@ -66,6 +74,7 @@ export default function AdminMenuPage() {
         setNameMr('');
         setNameEn('');
         setPrice('');
+        setImageUrl('');
       }
     } finally {
       setUploading(false);
@@ -75,46 +84,86 @@ export default function AdminMenuPage() {
   return (
     <div>
       <h1 className="text-2xl font-black mb-1">🍲 मेनू व्यवस्थापन</h1>
-      <p className="text-xs text-gray-500 mb-6">किंमत बदला, पदार्थ जोडा किंवा एका टॅपने बंद करा</p>
+      <p className="text-xs text-gray-500 mb-6">फोटो, किंमत, नाव जोडा आणि "उपलब्ध नाही" एका टॅपने टॉगल करा</p>
 
-      <form onSubmit={handleAddItem} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm mb-8">
-        <h2 className="font-extrabold text-sm mb-4">नवीन पदार्थ जोडा</h2>
+      {/* नवीन पदार्थ फॉर्म */}
+      <form onSubmit={handleAddItem} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm mb-8 space-y-4">
+        <h2 className="font-extrabold text-sm text-gray-900 border-b pb-2">नवीन पदार्थ जोडा</h2>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-          <input
-            type="text"
-            required
-            placeholder="पदार्थाचे नाव (मराठी) *"
-            value={nameMr}
-            onChange={e => setNameMr(e.target.value)}
-            className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-orange-500"
-          />
-          <input
-            type="text"
-            placeholder="English Name"
-            value={nameEn}
-            onChange={e => setNameEn(e.target.value)}
-            className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-orange-500"
-          />
-          <input
-            type="number"
-            required
-            placeholder="किंमत (₹) *"
-            value={price}
-            onChange={e => setPrice(e.target.value)}
-            className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-orange-500"
-          />
-          <select
-            value={categoryId}
-            onChange={e => setCategoryId(e.target.value)}
-            className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none"
-          >
-            {categories.map(c => (
-              <option key={c.id} value={c.id}>{c.name_mr}</option>
-            ))}
-          </select>
+          <div>
+            <label className="block text-[11px] font-bold text-gray-600 mb-1">पदार्थाचे नाव (मराठी) *</label>
+            <input
+              type="text"
+              required
+              placeholder="उदा. बटर डोसा"
+              value={nameMr}
+              onChange={e => setNameMr(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-orange-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-gray-600 mb-1">नाव (English)</label>
+            <input
+              type="text"
+              placeholder="e.g. Butter Dosa"
+              value={nameEn}
+              onChange={e => setNameEn(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-orange-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-gray-600 mb-1">किंमत (₹) *</label>
+            <input
+              type="number"
+              required
+              placeholder="उदा. 70"
+              value={price}
+              onChange={e => setPrice(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-orange-500 font-bold"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-gray-600 mb-1">श्रेणी (Category)</label>
+            <select
+              value={categoryId}
+              onChange={e => setCategoryId(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none"
+            >
+              {categories.map(c => (
+                <option key={c.id} value={c.id}>{c.name_mr}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div className="flex items-center justify-between mt-4">
+        {/* फोटो लिंक आणि प्रिव्ह्यू */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+          <div className="sm:col-span-2">
+            <label className="block text-[11px] font-bold text-gray-600 mb-1">
+              📸 फोटो लिंक (Image URL) - उदा. Google / Unsplash लिंक
+            </label>
+            <input
+              type="url"
+              placeholder="https://images.unsplash.com/..."
+              value={imageUrl}
+              onChange={e => setImageUrl(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-orange-500 font-mono"
+            />
+          </div>
+
+          {imageUrl && (
+            <div className="flex items-center gap-2">
+              <img src={imageUrl} alt="Preview" className="w-12 h-12 object-cover rounded-xl border border-gray-200" />
+              <span className="text-[10px] text-emerald-600 font-bold">फोटो प्रिव्ह्यू ✓</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
           <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
             <input
               type="checkbox"
@@ -122,19 +171,20 @@ export default function AdminMenuPage() {
               onChange={e => setIsVeg(e.target.checked)}
               className="w-4 h-4 text-emerald-600 rounded"
             />
-            व्हेज आहे?
+            🟢 व्हेज आहे?
           </label>
 
           <button
             type="submit"
             disabled={uploading}
-            className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-6 py-2 rounded-xl text-xs shadow transition disabled:opacity-50"
+            className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow transition disabled:opacity-50 cursor-pointer"
           >
             {uploading ? 'जोडत आहे...' : '+ पदार्थ जोडा'}
           </button>
         </div>
       </form>
 
+      {/* मेनू यादी */}
       <div className="space-y-3">
         {items.map(item => (
           <div
@@ -142,14 +192,22 @@ export default function AdminMenuPage() {
             className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between"
           >
             <div className="flex items-center gap-3">
-              <span className={`w-3 h-3 rounded-full ${item.is_veg ? 'bg-emerald-600' : 'bg-red-600'}`} />
+              {item.image_url ? (
+                <img src={item.image_url} alt={item.name_mr} className="w-12 h-12 rounded-xl object-cover border border-gray-200" />
+              ) : (
+                <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-xl">🍲</div>
+              )}
               <div>
-                <h3 className="font-extrabold text-sm text-gray-900">{item.name_mr} ({item.name_en})</h3>
-                <span className="text-xs font-bold text-gray-500">₹{item.price}</span>
+                <div className="flex items-center gap-2">
+                  <span className={`w-2.5 h-2.5 rounded-full ${item.is_veg ? 'bg-emerald-600' : 'bg-red-600'}`} />
+                  <h3 className="font-extrabold text-sm text-gray-900">{item.name_mr}</h3>
+                  {item.name_en && <span className="text-xs text-gray-400">({item.name_en})</span>}
+                </div>
+                <span className="text-xs font-bold text-orange-600 mt-0.5 block">₹{item.price}</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => toggleAvailability(item.id, item.is_available)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer ${
@@ -159,6 +217,14 @@ export default function AdminMenuPage() {
                 }`}
               >
                 {item.is_available ? 'उपलब्ध आहे ✓' : 'आज उपलब्ध नाही ✕'}
+              </button>
+
+              <button
+                onClick={() => handleDeleteItem(item.id)}
+                className="text-gray-300 hover:text-red-500 p-2 text-sm cursor-pointer"
+                title="हटवा"
+              >
+                🗑️
               </button>
             </div>
           </div>

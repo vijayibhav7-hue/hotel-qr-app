@@ -273,8 +273,11 @@ function CustomerOrderContent() {
       {/* हेडर */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-100 px-4 py-3 shadow-sm">
         <div className="flex items-center justify-between max-w-lg mx-auto">
-          <div>
-            <span className="text-xs bg-orange-100 text-orange-700 px-2.5 py-1 rounded-full font-bold">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-black text-gray-900 tracking-tight">
+              {table.restaurants?.name || 'हॉटेल स्वाद'}
+            </span>
+            <span className="text-xs bg-orange-100 text-orange-700 px-2.5 py-1 rounded-full font-extrabold">
               {t.table} {table.table_number}
             </span>
           </div>
@@ -338,23 +341,57 @@ function CustomerOrderContent() {
 
       {/* लाइव्ह ऑर्डर बॅनर + थेट UPI पे बटण */}
       {orderStatus && (
-        <div className="bg-amber-500 text-white px-4 py-3 text-center text-sm font-semibold shadow-inner">
-          <p>
-            {t.orderStatus}:{' '}
-            {orderStatus === 'new' && t.statusNew}
-            {orderStatus === 'accepted' && t.statusAccepted}
-            {orderStatus === 'preparing' && t.statusPreparing}
-            {orderStatus === 'ready' && t.statusReady}
-            {orderStatus === 'served' && t.statusServed}
-          </p>
+        <div className={`px-4 py-3.5 text-center text-sm font-semibold shadow-inner transition-all ${
+          orderStatus === 'new'
+            ? 'bg-amber-600 text-white'
+            : orderStatus === 'accepted' || orderStatus === 'preparing'
+            ? 'bg-emerald-600 text-white'
+            : orderStatus === 'ready'
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-800 text-white'
+        }`}>
+          <div className="flex items-center justify-center gap-2 font-black text-sm">
+            {orderStatus === 'new' && (
+              <>
+                <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
+                <span>⏳ ऑर्डर पाठवली आहे! काउंटर पडताळणी प्रलंबित आहे (Pending)...</span>
+              </>
+            )}
+            {orderStatus === 'accepted' && (
+              <>
+                <span className="text-lg">🟢</span>
+                <span>ऑर्डर कन्फर्म झाली! काउंटरने स्वीकारली आहे ✓</span>
+              </>
+            )}
+            {orderStatus === 'preparing' && (
+              <>
+                <span className="text-lg">🍳</span>
+                <span>शेफ गरमागरम पदार्थ तयार करत आहेत...</span>
+              </>
+            )}
+            {orderStatus === 'ready' && (
+              <>
+                <span className="text-lg">🍽️</span>
+                <span>ऑर्डर तयार झाली आहे! वेटर टेबलवर आणत आहे.</span>
+              </>
+            )}
+            {orderStatus === 'served' && (
+              <>
+                <span className="text-lg">✅</span>
+                <span>ऑर्डर टेबलवर दिली गेली. तृप्त राहा!</span>
+              </>
+            )}
+          </div>
 
           {orderTotalAmount > 0 && (
-            <a
-              href={upiPayUrl}
-              className="mt-2 inline-flex items-center gap-2 bg-white text-gray-900 font-extrabold text-xs px-4 py-1.5 rounded-xl shadow-md hover:bg-gray-100 transition active:scale-95"
-            >
-              <span>💳 GPay / PhonePe द्वारे ₹{orderTotalAmount} भरा</span>
-            </a>
+            <div className="mt-2.5">
+              <a
+                href={upiPayUrl}
+                className="inline-flex items-center gap-2 bg-white text-gray-900 font-black text-xs px-4 py-2 rounded-xl shadow-lg hover:bg-gray-100 transition active:scale-95"
+              >
+                <span>💳 GPay / PhonePe द्वारे ₹{orderTotalAmount} भरा</span>
+              </a>
+            </div>
           )}
         </div>
       )}

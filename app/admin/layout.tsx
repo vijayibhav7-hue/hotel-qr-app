@@ -84,7 +84,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const navItems = [
     { label: '📊 आजची विक्री व डॅशबोर्ड', href: '/admin' },
     { label: '🍲 मेनू व्यवस्थापन (CRUD)', href: '/admin/menu' },
-    { label: '🪑 टेबल्स व QR PDF', href: '/admin/tables' }
+    { label: '🪑 टेबल्स व QR PDF', href: '/admin/tables' },
+    { label: '⚙️ हॉटेल प्रोफाईल व सेटिंग्ज', href: '/admin/settings' }
   ];
 
   return (

@@ -43,6 +43,9 @@ export default function StaffDashboardPage() {
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
 
+  // कर्मचाऱ्याचे नाव (ऑर्डर स्वीकारताना नोंदवण्यासाठी)
+  const [staffName, setStaffName] = useState('कॅशियर');
+
   const [activeTab, setActiveTab] = useState<'orders' | 'kitchen'>('orders');
   const [orders, setOrders] = useState<Order[]>([]);
   const [serviceCalls, setServiceCalls] = useState<ServiceCall[]>([]);
@@ -54,6 +57,8 @@ export default function StaffDashboardPage() {
     if (saved === 'true') {
       setIsStaffAuth(true);
     }
+    const savedStaffName = localStorage.getItem('hotel_staff_current_name');
+    if (savedStaffName) setStaffName(savedStaffName);
   }, []);
 
   useEffect(() => {
@@ -78,7 +83,8 @@ export default function StaffDashboardPage() {
 
   const handleStaffLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pinInput === DEFAULT_STAFF_PIN) {
+    const storedPin = localStorage.getItem('hotel_staff_custom_pin') || DEFAULT_STAFF_PIN;
+    if (pinInput === storedPin) {
       setIsStaffAuth(true);
       localStorage.setItem('hotel_staff_auth', 'true');
       setPinError('');
@@ -153,11 +159,16 @@ export default function StaffDashboardPage() {
     };
   }, [restaurantId, isStaffAuth]);
 
+  // स्टेटस अपडेट (कर्मचाऱ्याच्या नावासह)
   const updateStatus = async (orderId: string, newStatus: string) => {
     await fetch('/api/staff/orders/status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId, newStatus })
+      body: JSON.stringify({
+        orderId,
+        newStatus,
+        staffName: `${staffName} (${new Date().toLocaleTimeString('mr-IN', { hour: '2-digit', minute: '2-digit' })})`
+      })
     });
     if (restaurantId) loadOrders(restaurantId);
   };
@@ -229,12 +240,28 @@ export default function StaffDashboardPage() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col">
       {/* हेडर */}
-      <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+      <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className="text-2xl">⚡</span>
           <div>
             <h1 className="font-black text-lg">स्टाफ लाइव्ह स्क्रीन</h1>
-            <p className="text-xs text-gray-400">रिअल-टाइम ऑर्डर्स आणि वेटर कॉल्स</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[11px] text-gray-400">लॉगिन कर्मचारी:</span>
+              <select
+                value={staffName}
+                onChange={e => {
+                  setStaffName(e.target.value);
+                  localStorage.setItem('hotel_staff_current_name', e.target.value);
+                }}
+                className="bg-gray-800 text-orange-400 text-xs font-bold px-2 py-0.5 rounded border border-gray-700 outline-none"
+              >
+                <option value="कॅशियर">कॅशियर</option>
+                <option value="वेटर १">वेटर १</option>
+                <option value="वेटर २">वेटर २</option>
+                <option value="शेफ/किचन">शेफ/किचन</option>
+                <option value="मॅनेजर">मॅनेजर</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -345,18 +372,23 @@ export default function StaffDashboardPage() {
                       </div>
                       <h3 className="font-extrabold text-base mt-1.5">ऑर्डर #{order.order_number}</h3>
                     </div>
+
+                    {/* स्टेटस बॅज */}
                     <span
                       className={`text-xs font-bold px-2.5 py-1 rounded-full ${
                         order.status === 'new'
-                          ? 'bg-amber-900 text-amber-300 border border-amber-600'
+                          ? 'bg-amber-900/80 text-amber-300 border border-amber-600 animate-pulse'
                           : order.status === 'accepted'
-                          ? 'bg-blue-900 text-blue-300'
+                          ? 'bg-emerald-900 text-emerald-300 border border-emerald-500'
                           : order.status === 'preparing'
                           ? 'bg-purple-900 text-purple-300'
-                          : 'bg-emerald-900 text-emerald-300'
+                          : 'bg-blue-900 text-blue-300'
                       }`}
                     >
-                      {order.status.toUpperCase()}
+                      {order.status === 'new' && '⏳ PENDING (पडताळणी)'}
+                      {order.status === 'accepted' && '🟢 CONFIRMED ✓'}
+                      {order.status === 'preparing' && '🍳 PREPARING'}
+                      {order.status === 'ready' && '🍽️ READY'}
                     </span>
                   </div>
 
@@ -373,11 +405,12 @@ export default function StaffDashboardPage() {
 
                   {order.customer_notes && (
                     <div className="bg-gray-800/80 p-2.5 rounded-xl text-xs text-amber-300 mb-4">
-                      <strong>सूचना:</strong> {order.customer_notes}
+                      <strong>नोंद / स्वीकारकर्ता:</strong> {order.customer_notes}
                     </div>
                   )}
                 </div>
 
+                {/* डबल कन्फर्मेशन बटणे */}
                 <div className="pt-3 border-t border-gray-800">
                   <div className="flex justify-between text-xs text-gray-400 mb-3">
                     <span>एकूण: ₹{order.total_amount}</span>
@@ -385,44 +418,51 @@ export default function StaffDashboardPage() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
+                    {/* १. काउंटर कन्फर्मेशन बटण */}
                     {order.status === 'new' && (
                       <>
                         <button
                           onClick={() => updateStatus(order.id, 'accepted')}
-                          className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl text-xs cursor-pointer"
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-2.5 rounded-xl text-xs cursor-pointer shadow flex items-center justify-center gap-1"
                         >
-                          Accept
+                          <span>✓ काउंटर कन्फर्म</span>
                         </button>
                         <button
                           onClick={() => updateStatus(order.id, 'rejected')}
-                          className="bg-gray-800 hover:bg-red-900 text-red-400 font-bold py-2 rounded-xl text-xs cursor-pointer"
+                          className="bg-gray-800 hover:bg-red-900 text-red-400 font-bold py-2.5 rounded-xl text-xs cursor-pointer"
                         >
-                          Reject
+                          ✕ Reject
                         </button>
                       </>
                     )}
+
+                    {/* २. शेफ / किचन कन्फर्मेशन बटण */}
                     {order.status === 'accepted' && (
                       <button
                         onClick={() => updateStatus(order.id, 'preparing')}
-                        className="col-span-2 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded-xl text-xs cursor-pointer"
+                        className="col-span-2 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 rounded-xl text-xs cursor-pointer flex items-center justify-center gap-1.5"
                       >
-                        Start Preparing 🍳
+                        <span>🍳 शेफने सुरुवात केली (Start Preparing)</span>
                       </button>
                     )}
+
+                    {/* ३. ऑर्डर तयार झाली */}
                     {order.status === 'preparing' && (
                       <button
                         onClick={() => updateStatus(order.id, 'ready')}
-                        className="col-span-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-xl text-xs cursor-pointer"
+                        className="col-span-2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl text-xs cursor-pointer"
                       >
-                        Mark Ready 🍽️
+                        🍽️ Mark Ready (तयार झाली)
                       </button>
                     )}
+
+                    {/* ४. टेबलवर दिली */}
                     {order.status === 'ready' && (
                       <button
                         onClick={() => updateStatus(order.id, 'served')}
-                        className="col-span-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded-xl text-xs cursor-pointer"
+                        className="col-span-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl text-xs cursor-pointer"
                       >
-                        Mark Served ✅
+                        ✅ Mark Served (टेबलवर दिली)
                       </button>
                     )}
                   </div>
@@ -443,7 +483,7 @@ export default function StaffDashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             {orders.map(order => (
               <div key={order.id} className="bg-gray-900 border-2 border-orange-500/50 rounded-2xl p-4">
-                <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-800">
+                <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-800">
                   <span className="text-base font-black text-orange-400">
                     टेबल {order.tables?.table_number}
                   </span>
@@ -454,6 +494,19 @@ export default function StaffDashboardPage() {
                   >
                     KOT 🖨️
                   </Link>
+                </div>
+
+                {/* काउंटरने कन्फर्म केले आहे का? */}
+                <div className="mb-3">
+                  {order.status === 'new' ? (
+                    <span className="text-[11px] bg-amber-950 text-amber-400 border border-amber-600 px-2 py-0.5 rounded block text-center font-bold">
+                      ⏳ काउंटरची मान्यता बाकी (Pending)
+                    </span>
+                  ) : (
+                    <span className="text-[11px] bg-emerald-950 text-emerald-400 border border-emerald-600 px-2 py-0.5 rounded block text-center font-bold">
+                      🟢 काउंटरने कन्फर्म केले! तयार करा 🍳
+                    </span>
+                  )}
                 </div>
 
                 <div className="space-y-3">
